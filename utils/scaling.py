@@ -12,37 +12,37 @@ class Scaler(ABC):
 class MinMaxScalerMethod(Scaler):
     def __init__(self):
         self.data = None
+        self.scaler = MinMaxScaler()
     
     def scale(self, data):
-        scaler = MinMaxScaler()
-        self.data = scaler.fit_transform(data)
+        self.data = self.scaler.fit_transform(data)
         return self.data
     
 class StandardScalerMethod(Scaler):
     def __init__(self):
         self.data = None
+        self.scaler = StandardScaler()
     
     def scale(self, data):
-        scaler = StandardScaler()
-        self.data = scaler.fit_transform(data)
+        self.data = self.scaler.fit_transform(data)
         return self.data
 
 class RobustScalerMethod(Scaler):
     def __init__(self):
         self.data = None
-    
+        self.scaler = RobustScaler()
+        
     def scale(self, data):
-        scaler = RobustScaler()
-        self.data = scaler.fit_transform(data)
+        self.data = self.scaler.fit_transform(data)
         return self.data
     
 class MaxAbsScalerMethod(Scaler):
     def __init__(self):
         self.data = None
+        self.scaler = MaxAbsScaler()
     
     def scale(self, data):
-        scaler = MaxAbsScaler()
-        self.data = scaler.fit_transform(data)
+        self.data = self.scaler.fit_transform(data)
         return self.data
 
 # define a factory class to access all scaler in one place
