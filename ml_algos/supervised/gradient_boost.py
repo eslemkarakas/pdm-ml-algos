@@ -2,11 +2,11 @@
 import os
 import sklearn
 import numpy as np
-from sklearn.ensemble import GradientBoostingClassifier, HistGradientBoostingRegressor
+from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
 
 # import local packages
+from utils.tuning import GridSearchAlgorithm
 from utils.template import BaseAlgorithm
-
 
 class GradientBoostingClassifierAlgorithm(BaseAlgorithm):
     algorithm_name = "Gradient Boost" 
@@ -28,7 +28,7 @@ class GradientBoostingClassifierAlgorithm(BaseAlgorithm):
         try:
             pass
         except Exception as e:
-            pass
+            pass   
             
 class GradientBoostingRegressorAlgorithm(BaseAlgorithm):
     pass
