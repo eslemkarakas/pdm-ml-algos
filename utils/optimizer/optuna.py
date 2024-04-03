@@ -1,72 +1,57 @@
-# import standard packages
+# -*- coding: utf-8 -*-
 import optuna
 import numpy as np
 import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
+import xgboost as xgb
+from sklearn.model_selection import train_test_split
 
-# import local packages
-from utils.metrics.measure import call_metric
-from utils.metrics.validate import call_validator
-from sklearn.ensemble import GradientBoostingClassifier
+from metrics.measure import call_metric
 
-class HyperparameterOptimizer:
-    def __init__(self, model, m_option, cv_params, cv_option, search_space, X, y):
+class Optimizer:
+    def __init__(self, X, y, metric_option):
         self.X = X
         self.y = y
-        self.study = None
-        self.metric = call_metric(m_option)
-        self.model = model
-        self.search_space = search_space
-        self.validator = call_validator(cv_option, cv_params)
-        self.folds = self.validator.extract(self.X, self.y)
+        self.metric = call_metric(metric_option)
+        self.optimize_hyperparameters()
         
     def objective(self, trial):
-        hyperparameters = {}
-        for param_name, param_config in self.search_space.items():
-            if param_config['type'] == 'int':
-                hyperparameters[param_name] = trial.suggest_int(param_name, param_config['min'], param_config['max'])
-            elif param_config['type'] == 'float':
-                hyperparameters[param_name] = trial.suggest_float(param_name, param_config["min"], param_config["max"], log=param_config.get("log", False))
-            else:
-                pass
-            
-        self.model = GradientBoostingClassifier(**hyperparameters)
-        
-        results = []
-        for train_idx, val_idx in self.folds:
-            X_train, y_train = self.X.loc[train_idx], self.y.loc[train_idx]
-            X_val, y_val = self.X.loc[val_idx], self.y.loc[val_idx]
+        hp = {
+                'objective': 'reg:squarederror',
+                'eval_metric': 'mae',
+                'booster': trial.suggest_categorical('booster', ['gbtree', 'gblinear', 'dart']),
+                'lambda': trial.suggest_float('lambda', 1e-8, 1.0, log=True),
+                'alpha': trial.suggest_float('alpha', 1e-8, 1.0, log=True),
+                'max_depth': trial.suggest_int('max_depth', 1, 10),
+                'eta': trial.suggest_float('eta', 1e-8, 1.0, log=True),
+                'gamma': trial.suggest_float('gamma', 1e-8, 1.0, log=True),
+                'grow_policy': trial.suggest_categorical('grow_policy', ['depthwise', 'lossguide'])
+            }
 
-            self.model.fit(X_train, y_train)
-            y_pred = self.model.predict(X_val)
-            
-            result = self.metric(y_val, y_pred)
-            results.append(result)
-        
-        return np.mean(results)
-    
-    def optuna_find_best_params(self, n_trials=50):
-        self.study = optuna.create_study(direction='minimize') # direction='maximize', sampler=optuna.samplers.RandomSampler
-        self.study.optimize(self.objective, n_trials=n_trials)
-        
+        X_train, X_valid, y_train, y_valid = train_test_split(self.X, self.y, test_size=0.2, shuffle=True, random_state=42)
+
+        dtrain = xgb.DMatrix(X_train, label=y_train)
+        dvalid = xgb.DMatrix(X_valid, label=y_valid)
+
+        model = xgb.train(hp, dtrain, evals=[(dvalid, 'validation')], early_stopping_rounds=10, verbose_eval=False)
+
+        y_pred = model.predict(dvalid)
+
+        metric_result = self.metric(y_valid, y_pred)
+
+        return metric_result
+
+    def optimize_hyperparameters(self):
+        self.study = optuna.create_study(direction='minimize')
+        self.study.optimize(self.objective, n_trials=100)
+
+    def get_best_params(self):
         return self.study.best_params
-    
-    def optuna_optimization_visualize(self, method):
-        if method == 'plot':
-            optuna.visualization.plot_optimization_history(self.study)
-        elif method == 'coordinate':
-            optuna.visualization.plot_parallel_coordinate(self.study)
-        elif method == 'plot-slice':
-            pass
-        else:
-            pass
 
-# define a wrapper function for optuna hyperparameter optimizer
-def call_hyperparameter_optimizer(model, m_option, cv_params, cv_option, search_space, X, y):
+def call_optimizer(X, y, metric):
     optimizer = None
     try:
-        optimizer = HyperparameterOptimizer(model, m_option, cv_params, cv_option, search_space, X, y)
+        optimizer = Optimizer(X, y, metric)
     except Exception as e:
         print(f'{str(e)}')
+        
     return optimizer
